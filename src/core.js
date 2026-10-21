@@ -141,6 +141,8 @@ function irisShape(pts, col = PAL.ink, far = 4000) {
 }
 function iris(cx, cy, r, col = PAL.ink) { if (r < 4) paint(rectPts(-60, -60, W + 120, H + 120), { wash: col, ink: null }); else irisShape(ellPts(cx, cy, r, r, 40), col); }
 
+// Every font the page uses (studio.html loads them from Google Fonts); setup waits for all of them before the first frame.
+const FONTS = ['Permanent Marker', 'Anton'];
 let T = 0, paperG = null, grainC = null, letG = null, glowTex = null, outC = null, outX = null;
 let LETTERS = [];
 
@@ -293,7 +295,7 @@ async function setup() {
   brush.scaleBrushes(5); defineBrushes();
   paperG = makePaper(); grainC = makeGrain(); glowTex = makeGlowTex(); letG = createGraphics(W, H); letG.pixelDensity(1);
   outC = document.getElementById('out'); outC.width = W; outC.height = H; outX = outC.getContext('2d');
-  await document.fonts.load('100px "Permanent Marker"');
+  await Promise.all(FONTS.map(f => document.fonts.load(`100px "${f}"`, 'Aa ğşıİ')));
   window.ready = true;
   if (!location.search.includes('render')) devUI();
 }

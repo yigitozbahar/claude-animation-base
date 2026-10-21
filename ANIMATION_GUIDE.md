@@ -99,7 +99,6 @@ For a worked example, see how the demo times its ending, at the end of this guid
 - **Clawd is bigger.** The frame is only 1080 wide, and it's watched on a phone. In a medium shot `u` is about 22–30 (Clawd is 10u wide, so that's 20–28% of the width). Put Clawd's feet in the lower part of `SAFE` (around `SAFE.y1 - 100`), with the action and the sky above.
 - **Grab them in the first second.** People decide in the first second whether to keep scrolling. Open on Clawd, already doing something or about to, not on a slow establishing shot. The transition in (an iris, a wipe) should be quick, about 0.3–0.5 s.
 - **Make it loop if you can.** Reels and Shorts replay automatically. An ending that rhymes with the opening (rule 7) can rhyme closely enough to replay cleanly: end on the pose or place the video starts on.
-- **Length:** 7–30 s suits Reels, Shorts and TikTok. Shorter is easier to watch again.
 
 ---
 
