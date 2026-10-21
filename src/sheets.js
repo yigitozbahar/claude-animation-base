@@ -1,24 +1,27 @@
 // sheets.js: Clawd's model sheets, as standalone loops. They're reference for you (and the model), not part of a video,
 // so they're the one place labels are fine. Scrub them at studio.html?loop=views or ?loop=emotions, or render:
-//   node render.mjs --loop=emotions --sheet=1 --cols=1 --w=1920 --out=docs/emotions.jpg
+//   node render.mjs --loop=emotions --sheet=1 --cols=1 --w=1920 --format=landscape --out=docs/emotions.jpg
+// They're laid out on a 1920×1080 page; in other formats a camera shrinks the page to fit the frame.
 (() => {
+  const PW = 1920, PH = 1080;
+  const page = draw => t => { camBegin(PW / 2, PH / 2, Math.min(W / PW, H / PH)); draw(t); camEnd(); };
   const label = (txt, x, y, size = 20) => letter(txt, x, y, size, PAL.ink, { ink: false, alpha: .8 });
-  const floor = (y, x0 = 0, x1 = W) => inkLine([[x0 + 40, y + 6], [W / 2, y + 4], [x1 - 40, y + 7]], .6, mixCol(PAL.paper, PAL.ink, .35), 'inkfine', .5);
+  const floor = (y, x0 = 0, x1 = PW) => inkLine([[x0 + 40, y + 6], [PW / 2, y + 4], [x1 - 40, y + 7]], .6, mixCol(PAL.paper, PAL.ink, .35), 'inkfine', .5);
 
   // Every emotion in EMO, alive. Order follows EMO.
-  LOOPS.emotions = t => {
-    const names = Object.keys(EMO), cols = 8, cw = W / cols, ch = H / 4;
+  LOOPS.emotions = page(t => {
+    const names = Object.keys(EMO), cols = 8, cw = PW / cols, ch = PH / 4;
     names.forEach((name, i) => {
       const cx = cw * (i % cols) + cw / 2, gy = ch * Math.floor(i / cols) + ch - 58;
       clawd(cx, gy, 11, feel(name, t, { seed: i }));
       label(name, cx, gy + 32);
     });
     for (let r = 0; r < 4; r++) floor(ch * r + ch - 58);
-  };
+  });
   LOOPS.emotions.len = 4;
 
   // Views, motion helpers, hats.
-  LOOPS.views = t => {
+  LOOPS.views = page(t => {
     // row 1: the five key views (flip any of them to face left)
     const views = ['front', 'q', 'side', 'qback', 'back'];
     views.forEach((v, i) => { const x = 240 + i * 360; clawd(x, 420, 19, { ...feel('neutral', t, { seed: i }), view: v }); label(v, x, 462, 24); });
@@ -38,6 +41,6 @@
     const hats = ['party', 'hard', 'crown', 'halo', 'wizard', 'top', 'fedora', 'band', 'beanie', 'bow', 'flower', 'headphones', 'cat', 'masq', 'bowtie'];
     hats.forEach((h, i) => { const x = 82 + i * 125.5; clawd(x, 985, 8, { ...feel('neutral', t, { seed: i }), hat: h }); label(h, x, 1015, 17); });
     floor(985);
-  };
+  });
   LOOPS.views.len = 4;
 })();

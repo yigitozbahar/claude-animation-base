@@ -1,6 +1,21 @@
 // core.js: constants, helpers, paper, paint wrapper, compositing and render hooks.
-// Length and rhythm come from PROJECT in config.js.
-const W = 1920, H = 1080;
+// Length, rhythm and frame format come from PROJECT in config.js.
+// safe: the strips at each edge that the app's own UI covers (Reels/Shorts/TikTok: the top bar, the caption and
+// username at the bottom, the like/comment/share column on the right). Backgrounds fill the whole frame; faces,
+// props and the action stay inside SAFE. The numbers are a conservative average of the three apps.
+const FORMATS = {
+  vertical:  { w: 1080, h: 1920, safe: { top: 220, bottom: 420, left: 60, right: 140 } },
+  landscape: { w: 1920, h: 1080, safe: { top: 0, bottom: 0, left: 0, right: 0 } },
+  square:    { w: 1080, h: 1080, safe: { top: 0, bottom: 0, left: 0, right: 0 } },
+  portrait:  { w: 1080, h: 1350, safe: { top: 0, bottom: 120, left: 0, right: 0 } },
+};
+const FORMAT_NAME = new URLSearchParams(location.search).get('format') || PROJECT.format || 'landscape';
+if (!FORMATS[FORMAT_NAME]) throw new Error(`unknown format "${FORMAT_NAME}": use one of ${Object.keys(FORMATS)}`);
+const FORMAT = { name: FORMAT_NAME, ...FORMATS[FORMAT_NAME] };
+const W = FORMAT.w, H = FORMAT.h, VERTICAL = H > W;
+// The safe rectangle in screen px: x0..x1, y0..y1, its size and centre.
+const SAFE = (({ top, bottom, left, right }) => ({ x0: left, y0: top, x1: W - right, y1: H - bottom, w: W - left - right, h: H - top - bottom,
+  cx: (left + W - right) / 2, cy: (top + H - bottom) / 2 }))(FORMAT.safe);
 const BPM = PROJECT.bpm, BEAT = 60 / BPM, OFF = PROJECT.offset || 0, BOIL = 12, DUR = PROJECT.duration;
 const TAU = Math.PI * 2;
 const PAL = {
@@ -259,7 +274,8 @@ function makeGrain() {
   const id = c.createImageData(W, H), d = id.data;
   for (let i = 0; i < d.length; i += 4) { const v = 255 - (rnd() < .55 ? rnd() * rnd() * 34 : 0); d[i] = v; d[i + 1] = v - 1; d[i + 2] = v - 3; d[i + 3] = 255; }
   c.putImageData(id, 0, 0);
-  const g = c.createRadialGradient(W / 2, H / 2, H * .45, W / 2, H / 2, H * 1.05); g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(120,95,70,.35)');
+  const D = Math.hypot(W, H) / 2;   // sized by the half-diagonal, so the vignette sits the same in every format
+  const g = c.createRadialGradient(W / 2, H / 2, D * .44, W / 2, H / 2, D * 1.03); g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(120,95,70,.35)');
   c.fillStyle = g; c.fillRect(0, 0, W, H);
   return cv;
 }
@@ -276,7 +292,7 @@ async function setup() {
   createCanvas(W, H, WEBGL); pixelDensity(1); noLoop();
   brush.scaleBrushes(5); defineBrushes();
   paperG = makePaper(); grainC = makeGrain(); glowTex = makeGlowTex(); letG = createGraphics(W, H); letG.pixelDensity(1);
-  outC = document.getElementById('out'); outX = outC.getContext('2d');
+  outC = document.getElementById('out'); outC.width = W; outC.height = H; outX = outC.getContext('2d');
   await document.fonts.load('100px "Permanent Marker"');
   window.ready = true;
   if (!location.search.includes('render')) devUI();
@@ -302,8 +318,9 @@ window.renderAt = async (t, type = 'image/png', q = .92) => { T = t; await redra
 // Contact sheet of several times, for visual checks: returns { url, ms[] }. crop = [x, y, w, h] fills each cell with just
 // that region of the frame, at full resolution (for checking faces, hands and contacts up close). at = [x, y, w, h]
 // instead crops w × h around the WORLD point (x, y), wherever each frame's camera put it (a foot, a splash, a prop on
-// a moving shot); x and y may be expressions evaluated in the page.
-window.renderSheet = async (times, cols = 3, w = 640, crop = null, at = null) => {
+// a moving shot); x and y may be expressions evaluated in the page. safe = true outlines SAFE in each cell, to check that
+// nothing that matters sits under the app's UI (only on the sheet, never in the video).
+window.renderSheet = async (times, cols = 3, w = 640, crop = null, at = null, safe = false) => {
   if (at) at = at.map((v) => typeof v === 'string' ? (0, eval)(v) : v);
   const [, , cw, ch] = at || crop || [0, 0, W, H], h = Math.round(w * ch / cw), rows = Math.ceil(times.length / cols), sc = document.createElement('canvas');
   sc.width = cols * w; sc.height = rows * h; const c = sc.getContext('2d'), ms = [];
@@ -311,7 +328,9 @@ window.renderSheet = async (times, cols = 3, w = 640, crop = null, at = null) =>
     const t0 = performance.now(); T = times[i]; await redraw(); composite(times[i]); ms.push(Math.round(performance.now() - t0));
     const x = (i % cols) * w, y = Math.floor(i / cols) * h;
     const [cx, cy] = at ? toScreen(at[0], at[1], LAST_CAM).map((v, j) => v - (j ? ch : cw) / 2) : crop || [0, 0];
-    c.drawImage(outC, cx, cy, cw, ch, x, y, w, h); c.fillStyle = 'rgba(0,0,0,.65)'; c.fillRect(x, y, 84, 24); c.fillStyle = '#fff'; c.font = '15px sans-serif'; c.fillText(times[i].toFixed(2) + 's', x + 6, y + 17);
+    c.drawImage(outC, cx, cy, cw, ch, x, y, w, h);
+    if (safe) { const k = w / cw; c.save(); c.beginPath(); c.rect(x, y, w, h); c.clip(); c.strokeStyle = 'rgba(255,40,120,.9)'; c.lineWidth = 2; c.setLineDash([8, 6]); c.strokeRect(x + (SAFE.x0 - cx) * k, y + (SAFE.y0 - cy) * k, SAFE.w * k, SAFE.h * k); c.restore(); }
+    c.fillStyle = 'rgba(0,0,0,.65)'; c.fillRect(x, y, 84, 24); c.fillStyle = '#fff'; c.font = '15px sans-serif'; c.fillText(times[i].toFixed(2) + 's', x + 6, y + 17);
   }
   return { url: sc.toDataURL('image/jpeg', .9), ms };
 };
@@ -319,6 +338,10 @@ window.gpuInfo = () => { const gl = drawingContext, e = gl.getExtension('WEBGL_d
 
 function devUI() {
   const s = document.getElementById('scrub'), lab = document.getElementById('tt'); s.max = window.LOOP ? window.LOOP.len : DUR;
+  const guide = document.getElementById('safe'), box = document.getElementById('safebox');
+  Object.assign(guide.style, { left: SAFE.x0 / W * 100 + '%', top: SAFE.y0 / H * 100 + '%', width: SAFE.w / W * 100 + '%', height: SAFE.h / H * 100 + '%' });
+  box.checked = new URLSearchParams(location.search).has('safe') || VERTICAL;
+  const show = () => guide.hidden = !box.checked; box.addEventListener('change', show); show();
   let busy = false, want = null;
   const go = async () => { if (busy) return; busy = true; while (want != null) { const t = want; want = null; const t0 = performance.now(); await window.renderAt(t); lab.textContent = `${t.toFixed(2)}s  ·  ${Math.round(performance.now() - t0)} ms/frame`; } busy = false; };
   s.addEventListener('input', () => { want = +s.value; go(); });

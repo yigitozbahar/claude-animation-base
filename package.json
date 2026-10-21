@@ -5,8 +5,9 @@
   "license": "MIT",
   "description": "Clawd, painted in p5.brush: a character kit and guide for making hand-painted Clawd animations",
   "scripts": {
-    "sheet": "node render.mjs --sheet=0,1,2,3,4,5 --out=out/sheet.jpg",
-    "video": "node render.mjs --clip --out=out/video.mp4"
+    "sheet": "node render.mjs --sheet=0,1,2,3,4,5 --cols=6 --w=270 --safe --out=out/sheet.jpg",
+    "video": "node render.mjs --clip --out=out/video.mp4",
+    "video:landscape": "node render.mjs --clip --format=landscape --out=out/video_landscape.mp4"
   },
   "dependencies": {
     "p5": "^2.3.3",

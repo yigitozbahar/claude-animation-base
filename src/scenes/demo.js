@@ -4,8 +4,12 @@
 //                     turns (drawn key views) and trots off after it. Brush wipe.
 //   Shot B (4.4–11 s): Clawd finds the star dim and sad in the grass, lifts it, and throws it back into the sky, where
 //                     it lights up again and twinkles goodbye. Iris out.
+// It stages itself for the frame: the story and its timing are the same, and a layout per format (FALL, RETURN) places
+// the set and the camera. In vertical (Reels) the fall and the throw run down and up the tall frame instead of across
+// it, and the action stays inside SAFE, clear of the app's UI.
 (() => {
   const NIGHT = [PAL.indigo, PAL.violet];   // wipe colours, the same on both sides of the cut
+  const OPEN = VERTICAL ? 1600 : 1500;       // an iris this big uncovers the whole frame from Clawd
 
   // ---------- set pieces ----------
   // ripple (optional): { x, y, t0 }, a wave of bright twinkles spreading out from (x, y) at time t0.
@@ -22,8 +26,9 @@
       paint(starPts(x, y, (3 + 5 * hash(i + 200)) * tw, .35, 4), { wash: PAL.cream, washOp: Math.min(255, 150 + 100 * tw), ink: null });
     }
     boilSeed('moon');
-    paint(ellPts(260, 170, 70, 70, 24, 1.5), { wash: PAL.cream, fill: PAL.ochre, fillOp: 40, ink: PAL.ink, sw: .8 });
-    paint(ellPts(245, 150, 16, 12, 10), { fill: mixCol(PAL.cream, PAL.ochre, .5), fillOp: 120, ink: null });
+    const [mx, my] = VERTICAL ? [250, 400] : [260, 170];   // below the app's top bar in vertical
+    paint(ellPts(mx, my, 70, 70, 24, 1.5), { wash: PAL.cream, fill: PAL.ochre, fillOp: 40, ink: PAL.ink, sw: .8 });
+    paint(ellPts(mx - 15, my - 20, 16, 12, 10), { fill: mixCol(PAL.cream, PAL.ochre, .5), fillOp: 120, ink: null });
   }
   function hill(cx, cy, rx, ry, col, t, tufts = 0) {
     boilSeed('hill' + cx);   // keyed by its position, which never changes
@@ -55,13 +60,23 @@
   const sparkle = (x, y, r, k) => { if (k > 0 && k < 1) paint(starPts(x, y, r * backOut(k) * (1 - k * .6), .25, 4, k * 2), { wash: PAL.cream, washOp: 255 * (1 - k * k), ink: null }); };
 
   // ---------- shot A: the fall ----------
-  const FRONT = [700, 1010, 900, 220];   // front hill ellipse (cx, cy, rx, ry)
+  // front, back: hill ellipses (cx, cy, rx, ry). from, to: the star's fall. land: where it glows. x0, x1: Clawd's trot.
+  // cam(t): [cx, cy, zoom] before the landing shake.
+  const FALL = VERTICAL ? {
+    front: [420, 1700, 700, 380], back: [900, 1600, 800, 420], from: [940, -60], to: [800, 1210], land: [800, 1190], u: 24, x0: 420, x1: 980,
+    cam: t => [kf(t, [[0, 540], [2.9, 540], [4.4, 760]]), kf(t, [[0, 980], [2, 960]]), kf(t, [[0, 1], [1.85, 1.07], [2.05, 1.03], [4.4, 1.01]])],
+  } : {
+    front: [700, 1010, 900, 220], back: [1560, 900, 820, 260], from: [1680, 40], to: [1545, 700], land: [1545, 690], u: 17, x0: 760, x1: 1520,
+    cam: t => [kf(t, [[0, 900], [2.9, 900], [4.4, 1230]]), kf(t, [[0, 560], [2, 540]]), kf(t, [[0, 1], [1.85, 1.07], [2.05, 1.03], [4.4, 1.01]])],
+  };
+  const FRONT = FALL.front;
   const tFall0 = 1.05, tLand = 1.9;
-  const fallAt = t => { const k = easeIn(seg(t, tFall0, tLand)); return [lerp(1680, 1545, k), lerp(40, 700, k)]; };
+  const fallAt = t => { const k = easeIn(seg(t, tFall0, tLand)); return [lerp(FALL.from[0], FALL.to[0], k), lerp(FALL.from[1], FALL.to[1], k)]; };
 
   function shotFall(t, lt, dur) {
     const shake = t > tLand ? shakeXY(t, 7 * Math.exp(-(t - tLand) * 7)) : [0, 0];
-    camBegin(kf(t, [[0, 900], [2.9, 900], [4.4, 1230]]) + shake[0], kf(t, [[0, 560], [2, 540]]) + shake[1], kf(t, [[0, 1], [1.85, 1.07], [2.05, 1.03], [4.4, 1.01]]));
+    const [cx, cy, zoom] = FALL.cam(t);
+    camBegin(cx + shake[0], cy + shake[1], zoom);
     sky(t);
     // the falling star, its trail, and the glow where it lands
     boilSeed('fall');
@@ -71,15 +86,15 @@
       const [sx, sy] = fallAt(t); starling(sx, sy, 22, { glow: 1, rot: t * 9 });
     }
     if (t > tLand) {
-      const a = t - tLand, k = Math.exp(-a * 1.2);
-      glow(1545, 690, 60 + 240 * (1 - Math.exp(-a * 5)), '#FFD96A', .3 + .9 * k);
-      for (let i = 0; i < 7; i++) { const q = seg(a, i * .03, .5 + i * .03), ang = -Math.PI / 2 + (i - 3) * .35; sparkle(1545 + Math.cos(ang) * 190 * q, 660 + Math.sin(ang) * 170 * q, 18, q); }
+      const a = t - tLand, k = Math.exp(-a * 1.2), [lx, ly] = FALL.land;
+      glow(lx, ly, 60 + 240 * (1 - Math.exp(-a * 5)), '#FFD96A', .3 + .9 * k);
+      for (let i = 0; i < 7; i++) { const q = seg(a, i * .03, .5 + i * .03), ang = -Math.PI / 2 + (i - 3) * .35; sparkle(lx + Math.cos(ang) * 190 * q, ly - 30 + Math.sin(ang) * 170 * q, 18, q); }
     }
-    hill(1560, 900, 820, 260, mixCol(PAL.teal, PAL.night, .45), t, 10);
+    hill(...FALL.back, mixCol(PAL.teal, PAL.night, .45), t, 10);
     hill(...FRONT, mixCol(PAL.sap, PAL.night, .35), t, 16);
 
     // Clawd: dozing → startled → the idea → a turn through the key views → a trot down the hill after it
-    const u = 17, x0 = 760, walk = stroll(t, 3.05, 4.7, x0, 1520, u);
+    const { u, x0 } = FALL, walk = stroll(t, 3.05, 4.7, x0, FALL.x1, u);
     const x = t < 3.05 ? x0 : walk.x, gy = hillY(x, ...FRONT) + 4;
     const mood = emotions(t, [[0, 'sleepy'], [tLand + .05, 'surprised', { lookX: .8 }], [2.55, 'idea'], [3.1, 'excited']]);
     const facing = t < 2.9 ? {} : t < 3.05 ? turn(t, 2.9, 3.05, 0, .25) : { view: 'side', walk: walk.walk, dy: (mood.dy || 0) * .4 + walk.dy };
@@ -87,7 +102,7 @@
     clawd(x, gy, u, { ...mood, ...facing, rot: (mood.rot || 0) + Math.atan(slope) * .8 });
     const eye = toScreen(x, gy - 4 * u);   // screen position of Clawd, for the iris
     camEnd();
-    if (lt < .5) iris(...eye, lerp(0, 1500, easeIn(lt / .5)));   // open on Clawd
+    if (lt < .5) iris(...eye, lerp(0, OPEN, easeIn(lt / .5)));   // open on Clawd
     boilSeed('transition');
     if (lt > dur - .3) brushWipe((lt - (dur - .3)) / .6, NIGHT);
   }
@@ -98,17 +113,27 @@
   //   ARRIVAL, the payoff (the star flares and a twinkle ripples across the sky; Clawd only watches, held ~0.45 s) →
   //   Clawd's REACTION (love, 0.45 s after the arrival: cause, then effect; held ~0.6 s) →
   //   goodbye (Clawd waves; 0.45 s later the star twinkles back) → the iris closes to Clawd, holds, and shuts.
+  // G: the ground line. walk: Clawd's entrance. ground, home: the star in the grass and in the sky. arc: the throw's
+  // height above a straight line. back: the far hill. cam(lt, k): [cx, cy, zoom], k = the shot's key times.
+  const RETURN = VERTICAL ? {
+    G: 1400, u: 26, walk: [120, 520], ground: [650, 1370], home: [700, 360], arc: 120, back: [700, 1700, 1000, 380], groundH: 1100,
+    cam: (lt, k) => [540 + 14 * Math.sin(lt * .8), kf(lt, [[0, 975], [k.tThrow, 960], [k.tHome + .1, 915]]), kf(lt, [[0, 1], [k.tThrow, 1.04], [k.tHome + .1, 1], [k.dur, 1.06]])],
+  } : {
+    G: 880, u: 24, walk: [300, 950], ground: [1080, 850], home: [1440, 150], arc: 260, back: [1300, 1180, 1300, 330], groundH: 400,
+    cam: (lt, k) => [960 + 18 * Math.sin(lt * .8), kf(lt, [[0, 530], [k.tThrow, 515], [k.tHome + .1, 470]]), kf(lt, [[0, 1], [k.tThrow, 1.04], [k.tHome + .1, 1], [k.dur, 1.06]])],
+  };
   function shotReturn(t, lt, dur) {
-    const G = 880, u = 24;
+    const { G, u } = RETURN;
     const tStop = 1.0, tLift = 1.9, tHold = 2.25, tWind = 2.55, tThrow = 2.7, tHome = 3.5, tLove = 3.95, tWave = 4.55, tReply = 5.0, tIris = 5.4;
-    camBegin(960 + 18 * Math.sin(lt * .8), kf(lt, [[0, 530], [tThrow, 515], [tHome + .1, 470]]), kf(lt, [[0, 1], [tThrow, 1.04], [tHome + .1, 1], [dur, 1.06]]));
-    sky(t, 1.4, { x: 1440, y: 150, t0: t - lt + tHome });   // the sky twinkles hello when the star gets home
-    hill(1300, 1180, 1300, 330, mixCol(PAL.teal, PAL.night, .45), t, 0);
+    camBegin(...RETURN.cam(lt, { tThrow, tHome, dur }));
+    const ground = RETURN.ground, home = RETURN.home;
+    sky(t, 1.4, { x: home[0], y: home[1], t0: t - lt + tHome });   // the sky twinkles hello when the star gets home
+    hill(...RETURN.back, mixCol(PAL.teal, PAL.night, .45), t, 0);
     boilSeed('ground');
-    paint(rectPts(-200, G - 20, W + 400, 400, 3), { wash: mixCol(PAL.sap, PAL.night, .3), fill: mixCol(PAL.sap, PAL.night, .55), fillOp: 100, bleed: .05, tex: .6, ink: null });
+    paint(rectPts(-200, G - 20, W + 400, RETURN.groundH, 3), { wash: mixCol(PAL.sap, PAL.night, .3), fill: mixCol(PAL.sap, PAL.night, .55), fillOp: 100, bleed: .05, tex: .6, ink: null });
     inkLine([[-200, G - 18], [W / 2, G - 24], [W + 200, G - 16]], 1, PAL.ink, 'ink', .5);
 
-    const walk = stroll(lt, 0, tStop, 300, 950, u), x = walk.x;
+    const walk = stroll(lt, 0, tStop, ...RETURN.walk, u), x = walk.x;
     const mood = emotions(lt, [[0, 'excited'], [1.05, 'surprised', { lookX: .8, lookY: .6 }], [1.45, 'hopeful', { lookX: .6, lookY: .5 }],
                                [tHold, 'starstruck'], [tThrow + .05, 'hopeful', { lookX: .6, lookY: -.9 }], [tLove, 'love']]);
     let pose;
@@ -133,14 +158,13 @@
 
     // the star: sad in the grass → lifted overhead, brightening → thrown home along an arc → home, twinkling back
     const head = [x, G + (cl.dy || 0) * u - 8 * u * (1 - (cl.sq || 0)) - 46];
-    const ground = [1080, G - 30], home = [1440, 150];
     if (lt < tLift) starling(...ground, 38, { glow: .15 + .5 * seg(lt, 1.45, 1.9), sad: lt < 1.6, rot: -.15 + .04 * Math.sin(lt * 3) });
     else if (lt < tThrow) {
       const k = easeOut(seg(lt, tLift, tHold)), p = arcPt(ground, head, 80, k);
       starling(p[0], p[1] + 14 * ease(seg(lt, tWind, tThrow)), 38, { glow: .65 + .35 * seg(lt, tLift, tHold + .2), rot: .2 * Math.sin(lt * 7) });
     } else if (lt < tHome) {
-      const k = easeOut(seg(lt, tThrow, tHome)), p = arcPt(head, home, 260, k);
-      for (let i = 1; i < 9; i++) { const kk = Math.max(0, k - i * .045), q = arcPt(head, home, 260, kk); sparkle(q[0] + jit(4), q[1], 16 - i, .3 + i * .08); }
+      const k = easeOut(seg(lt, tThrow, tHome)), p = arcPt(head, home, RETURN.arc, k);
+      for (let i = 1; i < 9; i++) { const kk = Math.max(0, k - i * .045), q = arcPt(head, home, RETURN.arc, kk); sparkle(q[0] + jit(4), q[1], 16 - i, .3 + i * .08); }
       starling(p[0], p[1], lerp(38, 22, k), { glow: 1, rot: lt * 10 * (1 - k) });
     } else {
       const a = lt - tHome, flare = Math.exp(-a * 4) + (lt > tReply ? Math.exp(-(lt - tReply) * 5) : 0);
@@ -154,7 +178,7 @@
     boilSeed('transition');
     if (lt < .3) brushWipe(.5 + lt / .6, NIGHT);
     if (lt > tIris) {   // iris to a small circle on Clawd, hold a moment, then shut
-      const r = lt < tIris + .5 ? lerp(1500, 250, ease(seg(lt, tIris, tIris + .5))) : lt < dur - .3 ? lerp(250, 232, seg(lt, tIris + .5, dur - .3)) : lerp(232, 0, easeIn(seg(lt, dur - .3, dur - .05)));
+      const r = lt < tIris + .5 ? lerp(OPEN, 250, ease(seg(lt, tIris, tIris + .5))) : lt < dur - .3 ? lerp(250, 232, seg(lt, tIris + .5, dur - .3)) : lerp(232, 0, easeIn(seg(lt, dur - .3, dur - .05)));
       iris(...eye, r);
     }
   }

@@ -24,21 +24,23 @@ function drawWorld(t) {
 }
 
 function placeholder(t) {
-  paint(ellPts(960, 520, 520, 300, 30, 20), { fill: PAL.sky, fillOp: 90, bleed: .3, ink: null });
-  clawd(960, 820, 20, feel('happy', t));
+  const r = Math.min(W, H);
+  paint(ellPts(W / 2, H * .48, r * .48, r * .28, 30, 20), { fill: PAL.sky, fillOp: 90, bleed: .3, ink: null });
+  clawd(W / 2, H * .48 + r * .28, r / 54, feel('happy', t));
 }
 
 // ---------- brush wipe ----------
 // A transition: fat paint strokes sweep across to cover the frame (p 0 → .5), then drag off (p .5 → 1).
-// Cut to the next shot at p = .5, under full cover. Call it last in both shots, in screen space (outside a camera):
+// Cut to the next shot at p = .5, under full cover. A taller frame gets more strokes, so each stays about as fat as in
+// landscape. Call it last in both shots, in screen space (outside a camera):
 //   end of shot A:   if (lt > dur - .3) brushWipe((lt - (dur - .3)) / .6);
 //   start of shot B: if (lt < .3) brushWipe(.5 + lt / .6);
 function brushWipe(p, cols = [PAL.clayDk, PAL.clay]) {
   if (p <= 0 || p >= 1) return;
-  const [c1, c2] = cols, n = 5, bh = (H + 420) / n + 40;
+  const [c1, c2] = cols, n = Math.max(5, Math.round(5 * H / 1080)), bh = (H + 420) / n + 40;
   push(); translate(W / 2, H / 2); rotate(-.1); translate(-W / 2, -H / 2);
   for (let i = 0; i < n; i++) {
-    const y0 = -230 + i * (H + 420) / n, d = [0, .14, .06, .18, .1][i];
+    const y0 = -230 + i * (H + 420) / n, d = [0, .14, .06, .18, .1][i % 5] + (i >= 5 ? .03 : 0);
     const q = p < .5 ? easeOut(clamp((p * 2 - d) / (1 - d))) : ease(clamp(((p - .5) * 2 - d) / (1 - d)));
     const x0 = p < .5 ? -300 : lerp(-300, W + 400, q), x1 = p < .5 ? lerp(-300, W + 400, q) : W + 400;
     if (x1 - x0 < 30) continue;

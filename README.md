@@ -4,6 +4,17 @@ This is a small starter kit with code, instructions and assets for animating a c
 
 ![Clawd's emotions, animated](docs/emotions.webp)
 
+## Vertical videos (Reels, Shorts, TikTok)
+
+This fork renders **vertical 1080×1920** by default, for Instagram Reels, YouTube Shorts and TikTok. The frame is set by `format` in [src/config.js](src/config.js): `vertical`, `landscape` (the original 1920×1080), `square` or `portrait` (1080×1350). Override it for one run with `--format=landscape` on `render.mjs` or `?format=landscape` on `studio.html`.
+
+- **Safe zone.** `SAFE` in [src/core.js](src/core.js) is the part of the frame the apps' buttons, caption and top bar leave clear. The studio shows it as a dashed box, and `--safe` draws it on contact sheets. The guide tells the model to keep the action inside it and the background edge to edge.
+- **Staging.** [ANIMATION_GUIDE.md](ANIMATION_GUIDE.md) rule 8 covers composing for the tall frame: use the height, a bigger Clawd, a hook in the first second, endings that loop.
+- **Upload-ready MP4.** H.264, yuv420p, BT.709 limited range, `+faststart`, at 24 fps (`--fps=30` if you prefer).
+- The demo stages the same story for both formats: the star falls down and is thrown up the tall frame.
+
+> Read ANIMATION_GUIDE.md, then make a 12-second vertical Reel of Clawd trying to catch a butterfly.
+
 ## Make a video
 
 Clone it, open it in Claude Code (or any coding agent) and ask for what you want:
@@ -20,10 +31,11 @@ Without a dedicated GPU, p5.brush's watercolour fills make render times fairly s
 
 ```bash
 npm install
-node render.mjs --clip --out=out/video.mp4
+node render.mjs --clip --out=out/video.mp4                      # vertical (Reels)
+node render.mjs --clip --format=landscape --out=out/wide.mp4    # landscape
 ```
 
-That renders the 11-second demo in [src/scenes/demo.js](src/scenes/demo.js). Open [studio.html](studio.html) in Chrome to scrub through it. Add `?loop=emotions` or `?loop=views` to see the model sheets. If Chrome isn't in a standard location, pass `--chrome=<path>` or set `CHROME_PATH`.
+That renders the 11-second demo in [src/scenes/demo.js](src/scenes/demo.js). Open [studio.html](studio.html) in Chrome to scrub through it. Add `?loop=emotions` or `?loop=views` to see the model sheets, and `?format=landscape` for the wide frame. If Chrome isn't in a standard location, pass `--chrome=<path>` or set `CHROME_PATH`.
 
 On Linux, `render.mjs` starts Chrome with `--no-sandbox` (Ubuntu 23.10+ blocks Chrome's sandbox in headless use) and also finds a Chromium installed by Playwright. With no GPU at all, add `--soft-gl` to render WebGL in software: slow on watercolour fills, but it works. On a headless Linux machine with an NVIDIA GPU (a cloud or cluster node), add `--gpu-angle=gl-egl` (or `vulkan`); `node gpu_probe.mjs <chrome path>` shows which renderer each set of flags gets.
 

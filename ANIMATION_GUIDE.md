@@ -90,6 +90,17 @@ For a worked example, see how the demo times its ending, at the end of this guid
 - **Rhyme the ending with the opening:** the same place, pose or motif, changed. It makes the film feel whole.
 - **Link scenes:** motion continues across cuts, and screen direction stays consistent (if Clawd travels right, keep travelling right). Props and characters carry over.
 
+### 8. Frame for the format: vertical by default
+
+`PROJECT.format` in [src/config.js](src/config.js) sets the frame: `vertical` (1080×1920, for Reels, Shorts and TikTok, the default), `landscape` (1920×1080), `square` (1080×1080) or `portrait` (1080×1350, feed posts). Lay everything out with `W`, `H` and `SAFE`, never with numbers written for one size. A vertical video is not a landscape video with the sides cut off; stage it for the tall frame:
+
+- **Keep what matters inside `SAFE`.** On a phone the app covers the frame's edges: a bar at the top, the caption and username at the bottom, and the like, comment and share buttons down the right. `SAFE` is the rectangle they leave clear (`x0, y0, x1, y1, w, h, cx, cy`; 60 px from the left, 140 from the right, 220 from the top and 420 from the bottom in vertical). Faces, emotes, held props and every read go inside it. Backgrounds, skies and ground still fill the whole frame, edge to edge: a strip of paper under the UI looks like a mistake.
+- **Use the height.** Vertical motion reads best in a tall frame: falls, jumps, throws, things dropping in from above, climbing, rising and sinking. Stack the story top to bottom (sky over the character, a thought over a head, a goal above or below), and move the camera up and down (tilts, rises, drops) as much as across. Horizontal travel has little room, so a walk across the frame is short: follow it with the camera or cut on action.
+- **Clawd is bigger.** The frame is only 1080 wide, and it's watched on a phone. In a medium shot `u` is about 22–30 (Clawd is 10u wide, so that's 20–28% of the width). Put Clawd's feet in the lower part of `SAFE` (around `SAFE.y1 - 100`), with the action and the sky above.
+- **Grab them in the first second.** People decide in the first second whether to keep scrolling. Open on Clawd, already doing something or about to, not on a slow establishing shot. The transition in (an iris, a wipe) should be quick, about 0.3–0.5 s.
+- **Make it loop if you can.** Reels and Shorts replay automatically. An ending that rhymes with the opening (rule 7) can rhyme closely enough to replay cleanly: end on the pose or place the video starts on.
+- **Length:** 7–30 s suits Reels, Shorts and TikTok. Shorter is easier to watch again.
+
 ---
 
 ## Animation principles
@@ -121,6 +132,7 @@ Logline: one sentence. Clawd wants ___, but ___, so ___.
 World: setting, a small palette, light, how the colour changes across the video.
 Motif: the thing that recurs and pays off.
 Clawd's arc: the emotion keys across the whole video.
+Format: vertical (Reels) / landscape / ... and, for vertical, how the shots use the height.
 Shots:
   A  start–end  [transition in: ___]  what's seen · the EVENT · Clawd's reaction · camera
      reads:  start–end  the first thing the viewer must understand
@@ -139,10 +151,11 @@ Check the storyboard against the rules:
 - Is there a transition at every seam?
 - Is there any text anywhere?
 - Does the ending rhyme with the opening?
+- Vertical: does every read happen inside SAFE? Does the video use the height?
 
 ### 2. Build
 
-- Set `duration` (and `bpm`) in [src/config.js](src/config.js).
+- Set `duration`, `format` (and `bpm`) in [src/config.js](src/config.js).
 - Put your scene in a new file (e.g. `src/scenes/my_video.js`), wrapped in an IIFE, and end it with `shots([...])`. In [studio.html](studio.html), **replace** the `demo.js` script tag with yours.
 - Build and check one shot at a time, in order.
 - Within a shot, block the key poses first and check them as stills (`--sheet` at the key times). Add the motion between them once they read.
@@ -151,15 +164,16 @@ Check the storyboard against the rules:
 // src/scenes/my_video.js
 (() => {
   function park(t, lt, dur) {                        // t = video time, lt = time in this shot, dur = shot length
-    camBegin(960 + 20 * Math.sin(lt * .6), 540, 1 + .02 * lt);   // slow drift and push: the camera is never dead
-    paint(rectPts(-200, -200, W + 400, H + 400), { wash: PAL.sky, ink: null });           // background
-    paint(ellPts(960, 1150, 1400, 380, 40, 2), { wash: PAL.sap, ink: PAL.ink, sw: 1 });   // ground
+    const gx = SAFE.cx, gy = SAFE.y1 - 100, u = 26;    // laid out from W, H and SAFE, so it fits any format
+    camBegin(W / 2 + 20 * Math.sin(lt * .6), H / 2, 1 + .02 * lt);   // slow drift and push: the camera is never dead
+    paint(rectPts(-200, -200, W + 400, H + 400), { wash: PAL.sky, ink: null });           // background, edge to edge
+    paint(ellPts(gx, gy + 300, W * .75, 380, 40, 2), { wash: PAL.sap, ink: PAL.ink, sw: 1 });   // ground
     const mood = emotions(lt, [[0, 'bored'], [1.2, 'surprised'], [1.7, 'excited']]);      // acted changes
     const hop = jump(lt, 2.2, 2.7, 3);                                                    // add poses that share fields
-    clawd(960, 860, 26, { ...mood, dy: mood.dy + hop.dy, sq: mood.sq + hop.sq });
-    const at = toScreen(960, 860 - 4 * 26);          // Clawd's screen position, for the iris
+    clawd(gx, gy, u, { ...mood, dy: mood.dy + hop.dy, sq: mood.sq + hop.sq });
+    const at = toScreen(gx, gy - 4 * u);             // Clawd's screen position, for the iris
     camEnd();
-    if (lt < .45) iris(...at, lerp(0, 1500, easeIn(lt / .45)));            // transition in
+    if (lt < .45) iris(...at, lerp(0, Math.hypot(W, H), easeIn(lt / .45)));   // transition in
     if (lt > dur - .3) brushWipe((lt - (dur - .3)) / .6);                 // transition out (next shot finishes it)
   }
   shots([[0, park] /*, [3.5, nextShot], ... */]);
@@ -171,8 +185,8 @@ Check the storyboard against the rules:
 You can't see motion by reading code. Render and look at every shot, several times, at three zoom levels:
 
 ```bash
-# contact sheet: the shape of the whole piece (every shot's first, middle and last frames)
-node render.mjs --sheet=0.1,0.8,1.6,2.4,3.1,3.9 --cols=6 --w=320 --out=out/check/sheet.jpg
+# contact sheet: the shape of the whole piece (every shot's first, middle and last frames); --safe outlines SAFE
+node render.mjs --sheet=0.1,0.8,1.6,2.4,3.1,3.9 --cols=6 --w=320 --safe --out=out/check/sheet.jpg
 # strip: EVERY frame of a moment (turns, takes, jumps, throws, transitions)
 node render.mjs --strip=2.1:2.6 --cols=6 --w=320 --out=out/check/strip.jpg
 # crop: full-resolution detail (faces, hands, contacts, glows); crop=x,y,w,h in frame pixels
@@ -185,6 +199,7 @@ node render.mjs --strip=2.1:2.6 --crop-at=960,700,500,400 --out=out/check/feet.j
 Open each image and actually look at it. Check:
 
 - **Read:** is the event of each shot clear from its sheet alone? Is Clawd big enough, and does Clawd separate from the background?
+- **Safe zone** (render sheets with `--safe`): is every face, emote, prop and read inside the dashed box? Does the background still reach every edge?
 - **Timing.** You can't judge timing from single frames, so read it like a viewer:
   - Render the shot as a sheet at a fixed step (every 0.1–0.15 s) and read it in order.
   - At each frame ask: where is the viewer looking right now, and do they understand it yet?
@@ -202,7 +217,7 @@ Fix what you find, then look again. **Budget:** at least one sheet per shot, a s
 ### 4. Render
 
 ```bash
-node render.mjs --clip --out=out/video.mp4                      # the whole video, straight to MP4
+node render.mjs --clip --out=out/video.mp4                      # the whole video, straight to MP4 (W×H of the format)
 node render.mjs --frames --workers=4                            # or: parallel + resumable JPEG frames into out/frames …
 node render.mjs --encode --out=out/video.mp4                    # … then encode them
 ```
@@ -215,14 +230,14 @@ node render.mjs --encode --out=out/video.mp4                    # … then encod
 
 | file | what's in it |
 |---|---|
-| `src/config.js` | `PROJECT = { duration, bpm, offset, audio? }` |
-| `src/core.js` | canvas, palette, timing and motion helpers, `paint()`, camera, full-frame effects, `glow()`, lettering, paper, render hooks |
+| `src/config.js` | `PROJECT = { duration, bpm, offset, format, audio? }` |
+| `src/core.js` | canvas and formats (`FORMATS`, `W`, `H`, `SAFE`, `VERTICAL`), palette, timing and motion helpers, `paint()`, camera, full-frame effects, `glow()`, lettering, paper, render hooks |
 | `src/clawd.js` | Clawd: views, emotions, eyes, mouths, hats, emotes, moves |
 | `src/timeline.js` | `shots()`, `LOOPS`, `brushWipe()` |
 | `src/sheets.js` | the model sheets as loops (`?loop=emotions`, `?loop=views`) |
 | `src/scenes/demo.js` | an 11-second example. **Don't copy it** (see the end of this guide) |
-| `studio.html` | open it in Chrome to scrub the video (`?t=2.5` jumps to a time, `?loop=emotions` shows a loop) |
-| `render.mjs` | headless renderer: sheets, strips, crops, stills, PNG loops, MP4 |
+| `studio.html` | open it in Chrome to scrub the video (`?t=2.5` jumps to a time, `?loop=emotions` shows a loop, `?format=landscape` overrides the format; the safe-zone box toggles in the bar) |
+| `render.mjs` | headless renderer: sheets, strips, crops, stills, PNG loops, MP4 (`--format=` overrides the format, `--safe` outlines SAFE on sheets) |
 
 ### Frames are pure functions of time
 
@@ -233,7 +248,7 @@ node render.mjs --encode --out=out/video.mp4                    # … then encod
   - Call it before each separate element: each background layer, prop and effect.
   - `clawd()` seeds itself and each of its parts, then reseeds when it's done, so nothing drawn after it depends on its pose. Its key is its call order; set `boilKey` if characters come and go mid-shot.
 - **Each shot paints the whole frame,** background included. The paper texture is under everything and the grain is multiplied over the top, so leaving paper showing is a valid look.
-- **Canvas:** 1920×1080, origin top-left, y down.
+- **Canvas:** `W`×`H` from `PROJECT.format` (1080×1920 in vertical, 1920×1080 in landscape), origin top-left, y down. `VERTICAL` is true when the frame is taller than wide. `SAFE` is the part the app's UI leaves clear (see rule 8).
 - `LOOPS.name = t => {...}; LOOPS.name.len = 4;` makes a standalone loop (tests, GIFs, sheets), rendered with `--loop=name`.
 
 ### Painting
@@ -314,7 +329,7 @@ Clawd is the Claude Code mascot: a terracotta block (`PAL.clay`), 10 units wide 
 clawd(x, y, u, options)   // (x, y) = ground point between the feet; u = size unit
 ```
 
-**Sizes:** Clawd is 10u × 8u (legs included).
+**Sizes:** Clawd is 10u × 8u (legs included). In vertical, use the upper end of each range (see rule 8).
 
 | shot | u | on screen |
 |---|---|---|
@@ -442,7 +457,7 @@ These are the things that make a Clawd video look generated. Check your storyboa
 
 ## About the demo
 
-[src/scenes/demo.js](src/scenes/demo.js) ("The fallen star") exists to show the kit working: an acted emotion timeline, a drawn turn, a trot, a pickup, a throw on an arc, `glow`, a brush wipe and an iris in and out. **It's one idea, not a template.** Don't reuse its story, night sky, hills, star or shot structure. Start from the prompt and your own storyboard, and replace its script tag in `studio.html` with yours.
+[src/scenes/demo.js](src/scenes/demo.js) ("The fallen star") exists to show the kit working: an acted emotion timeline, a drawn turn, a trot, a pickup, a throw on an arc, `glow`, a brush wipe and an iris in and out. It's staged twice, from one story and one timing: a layout per format (`FALL`, `RETURN`) places the set and the camera, and in vertical the star falls down and is thrown up the tall frame, with the action inside `SAFE`. A video of your own only needs the format it's made for. **It's one idea, not a template.** Don't reuse its story, night sky, hills, star or shot structure. Start from the prompt and your own storyboard, and replace its script tag in `studio.html` with yours.
 
 ### Worked example: how the demo times its ending
 
